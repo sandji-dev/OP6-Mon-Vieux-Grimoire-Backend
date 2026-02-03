@@ -5,7 +5,7 @@ const fs = require("fs");
 exports.getAllBooks = (req, res) => {
     Book.find()
         .then((books) => res.status(200).json(books))
-        .catch((error) => res.status(400).json({ error })); // Erreur brute
+        .catch((error) => res.status(400).json({ error }));
 };
 
 // GET : Récupérer un livre spécifique par son ID
@@ -31,11 +31,11 @@ exports.getBestRating = (req, res) => {
 exports.createBook = (req, res) => {
     const bookObject = JSON.parse(req.body.book);
     delete bookObject._id;
-    delete bookObject._userId; // Sécurité : on ne fait pas confiance au userId du front
+    delete bookObject._userId; // Sécurité 
 
     const book = new Book({
         ...bookObject,
-        userId: req.auth.userId, // On utilise l'ID du token (authentification forcée)
+        userId: req.auth.userId, // On utilise l'ID du token 
         // L'image URL utilise le nom de fichier traité par Multer/Sharp
         imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`,
         averageRating: bookObject.ratings[0]?.grade || 0
@@ -47,42 +47,47 @@ exports.createBook = (req, res) => {
 };
 
 // PUT : Modifier un livre existant
-
 exports.updateBook = (req, res) => {
-    // 1. On cherche d'abord le livre pour vérifier l'identité
+    // 1. On cherche d'abord le livre existant pour vérifier les droits et récupérer l'ancienne image
     Book.findOne({ _id: req.params.id })
         .then((book) => {
+            // Sécurité : Si le livre n'existe pas
             if (!book) return res.status(404).json({ message: "Livre non trouvé" });
 
-            // EXIGENCE : Vérifier si l'utilisateur est le propriétaire (403)
+            // Sécurité : Vérifie que celui qui modifie est bien le propriétaire du livre
             if (book.userId !== req.auth.userId) {
                 return res.status(403).json({ message: "403: unauthorized request" });
             }
 
-            // --- NOUVELLE LOGIQUE DE NETTOYAGE D'IMAGE ---
-            // Si l'utilisateur envoie une nouvelle image, on doit supprimer l'ancienne
-            if (req.file) {
-                const filename = book.imageUrl.split('/images/')[1]; // On récupère le nom du fichier
-                fs.unlink(`images/${filename}`, (err) => {
-                    if (err) console.log("Erreur lors de la suppression de l'ancienne image :", err);
-                });
-            }
-            // ----------------------------------------------
-
-            // 2. On prépare l'objet de mise à jour
+            // 2. Préparation des données de mise à jour
+            // Si req.file existe, on traite la nouvelle image, sinon on récupère juste le corps de la requête
             const bookObject = req.file ? {
                 ...JSON.parse(req.body.book),
                 imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`
             } : { ...req.body };
 
-            delete bookObject._userId; // Sécurité : empêcher le changement de propriétaire
+            // Sécurité : On supprime le userId venant de la requête pour éviter qu'un malin change le propriétaire
+            delete bookObject._userId;
 
-            // 3. Mise à jour dans la base
+            // 3. Action de mise à jour dans la base de données
+            // On utilise l'ID des paramètres pour être sûr de viser le bon livre
             Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
-                .then(() => res.status(200).json({ message: "Livre modifié !" }))
-                .catch(error => res.status(400).json({ error }));
+                .then(() => {
+                    // 4. NETTOYAGE : Si une nouvelle image a été chargée avec succès
+                    if (req.file) {
+                        // On extrait le nom de l'ANCIENNE image de la base de données
+                        const filename = book.imageUrl.split('/images/')[1];
+                        // On supprime physiquement l'ancien fichier du serveur
+                        fs.unlink(`images/${filename}`, (err) => {
+                            if (err) console.log("Note : Ancienne image déjà absente ou erreur de suppression");
+                        });
+                    }
+                    // Réponse finale  après succès de la DB et nettoyage
+                    res.status(200).json({ message: "Livre modifié !" });
+                })
+                .catch(error => res.status(400).json({ error })); // Erreur lors de l'Update
         })
-        .catch(error => res.status(400).json({ error }));
+        .catch(error => res.status(500).json({ error })); // Erreur lors du FindOne
 };
 
 // DELETE : Supprimer un livre et son image
@@ -91,19 +96,23 @@ exports.deleteBook = (req, res) => {
         .then(book => {
             if (!book) return res.status(404).json({ message: "Livre non trouvé" });
             
-            // EXIGENCE : Vérifier si l'utilisateur est le propriétaire (403)
             if (book.userId !== req.auth.userId) {
                 return res.status(403).json({ message: "403: unauthorized request" });
             }
 
-            // Suppression physique du fichier image du serveur (Green Code / Nettoyage)
             const filename = book.imageUrl.split('/images/')[1];
-            fs.unlink(`images/${filename}`, () => {
-                // Suppression de l'entrée dans la base de données
-                Book.deleteOne({ _id: req.params.id })
-                    .then(() => res.status(200).json({ message: "Livre supprimé !" }))
-                    .catch(error => res.status(400).json({ error }));
-            });
+
+            // 1. On supprime d'abord de la base de données
+            Book.deleteOne({ _id: req.params.id })
+                .then(() => {
+                    // 2. Une fois que c'est fait, on supprime le fichier en arrière-plan
+                    fs.unlink(`images/${filename}`, (err) => {
+                        if (err) console.error("Erreur suppression fichier:", err);
+                        // On répond au client que tout est OK
+                        res.status(200).json({ message: "Livre supprimé !" });
+                    });
+                })
+                .catch(error => res.status(400).json({ error }));
         })
         .catch(error => res.status(500).json({ error }));
 };
@@ -136,7 +145,7 @@ exports.rateBook = (req, res) => {
             // reduce additionne toutes les notes du tableau
             const totalGrade = book.ratings.reduce((sum, r) => sum + r.grade, 0);
             const average = totalGrade / book.ratings.length;
-            // je Stocke le resultat dans la ppté "averageRating" et j'arrondi à une décimale
+            // je Stocke le resultat dans "averageRating" et j'arrondi à une décimale
             book.averageRating = Math.round(average * 10) / 10;
 
             return book.save();

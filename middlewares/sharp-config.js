@@ -29,7 +29,7 @@ module.exports = async (req, res, next) => {
         req.file.filename = outputName;
         req.file.path = outputPath;
 
-        next(); // On passe au contrôleur
+        next();
     } catch (error) {
         res.status(500).json({ error });
     }

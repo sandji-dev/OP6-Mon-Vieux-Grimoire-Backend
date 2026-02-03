@@ -15,7 +15,6 @@ exports.signup = async (req, res) => {
         if (!req.body) {
             return res.status(400).json({ message: "Body manquant" });
         }
-
         // 2️- On récupère email et password depuis la requête
         const { email, password } = req.body;
 
@@ -61,13 +60,12 @@ exports.login = async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({ message: "Email ou mot de passe manquant" });
         }
-
         // 4️- On cherche l'utilisateur dans la base
         const user = await User.findOne({ email: email });
 
         // 5️- Si l'utilisateur n'existe pas
         if (!user) {
-            return res.status(401).json({ message: "Mot de passe incorrect ou id incorrect" });
+            return res.status(401).json({ message: "Mot de passe ou id incorrect" });
         }
 
         // 6️- On compare le mot de passe envoyé avec celui en base
@@ -75,24 +73,24 @@ exports.login = async (req, res) => {
 
         // 7️- Si le mot de passe est incorrect
         if (!isValidPassword) {
-            return res.status(401).json({ message: "Mot de passe incorrect ou id incorrect" });
+            return res.status(401).json({ message: "Mot de passe ou id incorrect" });
         }
 
-        // 8️- On crée le token JWT
+        // 8- On crée le token JWT
         const token = jwt.sign(
             { userId: user._id },        // payload
             process.env.JWT_SECRET,      // clé secrète
             { expiresIn: '24h' }         // durée de validité
         );
 
-        // 9️- Réponse succès
+        //9- Réponse succès
         res.status(200).json({
             userId: user._id,
             token: token
         });
 
     } catch (error) {
-        // 10- Erreur serveur
+        //10- Erreur serveur
         res.status(500).json({ error: error.message });
     }
 };
