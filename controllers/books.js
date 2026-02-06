@@ -21,8 +21,8 @@ exports.getBookById = (req, res) => {
 // GET : Récupérer les 3 livres les mieux notés (pour la page d'accueil)
 exports.getBestRating = (req, res) => {
     Book.find()
-        .sort({ averageRating: -1 }) // Tri par note décroissante
-        .limit(3) // On n'en prend que 3
+        .sort({ averageRating: -1 })
+        .limit(3)
         .then((books) => res.status(200).json(books))
         .catch((error) => res.status(400).json({ error }));
 };
@@ -85,9 +85,9 @@ exports.updateBook = (req, res) => {
                     // Réponse finale  après succès de la DB et nettoyage
                     res.status(200).json({ message: "Livre modifié !" });
                 })
-                .catch(error => res.status(400).json({ error })); // Erreur lors de l'Update
+                .catch(error => res.status(400).json({ error }));
         })
-        .catch(error => res.status(500).json({ error })); // Erreur lors du FindOne
+        .catch(error => res.status(500).json({ error }));
 };
 
 // DELETE : Supprimer un livre et son image

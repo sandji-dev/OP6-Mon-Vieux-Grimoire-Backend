@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 module.exports = async (req, res, next) => {
-    // Si aucun fichier n'est envoyé (ex: modification de texte uniquement), on passe au suivant
+    // Si aucun fichier n'est envoyé, on passe au suivant
     if (!req.file) {
         return next();
     }
@@ -16,9 +16,9 @@ module.exports = async (req, res, next) => {
 
         // 2. Traitement avec Sharp (Green Code)
         await sharp(req.file.path)
-            .resize({ width: 400 }) // Redimensionnement
-            .webp({ quality: 80 })  // Compression WebP
-            .toFile(outputPath);    // Enregistrement
+            .resize({ width: 400 })
+            .webp({ quality: 80 })  
+            .toFile(outputPath);    
 
         // 3. Suppression de l'image originale trop lourde
         fs.unlink(req.file.path, (error) => {
