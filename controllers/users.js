@@ -22,7 +22,11 @@ exports.signup = async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({ message: "Email ou mot de passe manquant" });
         }
-
+         // ✅ Vérification du format email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: "email invalide" });
+        }
         // 4️- On hash le mot de passe (10 = niveau de sécurité recommandé)
         const hashedPassword = await bcrypt.hash(password, 10);
         // 5️- On crée un nouvel utilisateur
